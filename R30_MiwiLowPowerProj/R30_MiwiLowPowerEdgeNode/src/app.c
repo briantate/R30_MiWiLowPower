@@ -21,6 +21,8 @@ static uint8_t sendDataBuffer[SEND_BUFFER_SIZE];
 uint8_t msghandledemo = 0;
 uint8_t extintCount = 0;
 
+static bool txComplete = true;
+
 
 
 static void configure_extint_channel(void);
@@ -45,8 +47,8 @@ void AppInit(void)
 
 void AppTask(void)
 {
-// 	if(role==true) //PAN coordinator
-// 	{
+	if(role==true) //PAN coordinator
+	{
 		switchState = port_pin_get_input_level(SW0_PIN);
 		if(!switchState & switchLastState)
 		{
@@ -58,50 +60,65 @@ void AppTask(void)
 			//send broadcast data
 			uint16_t broadcastAddress = 0xFFFF;
 			MiApp_SendData(SHORT_ADDR_LEN, (uint8_t *)&broadcastAddress,
-			SEND_BUFFER_SIZE, sendDataBuffer, msghandledemo++, true, dataConfcb);
+				SEND_BUFFER_SIZE, sendDataBuffer, msghandledemo++, true, dataConfcb);
 		}
 		switchLastState = switchState;
-// 	}
-// 	else //edge node
-// 	{
-// 		//send data
-// 		sendDataBuffer[0] = 0x41 + cntVal%10; //start at ascii A
-// 		cntVal++;
-// 		
-// 		//send broadcast data
-// 		uint16_t broadcastAddress = 0xFFFF;
-// 		DEBUG_PRINT(printf("sending char: %u\r\n", sendDataBuffer[0]));
-// 		MiApp_SendData(SHORT_ADDR_LEN, (uint8_t *)&broadcastAddress,
-// 			SEND_BUFFER_SIZE, sendDataBuffer, msghandledemo++, true, dataConfcb);
-// 		
-// 		//sleep radio
-// 		DEBUG_PRINT(printf("sleeping the radio\r\n"));
-// 		MiApp_TransceiverPowerState(POWER_STATE_SLEEP);
-// 		
-// 		//sleep MCU
-// 		DEBUG_PRINT(printf("sleeping the MCU\r\n"));
-// 		// Scaling down clock frequency and then Scaling down the performance level
-// 		main_clock_select(SYSTEM_CLOCK_SOURCE_OSC16M);
-// 		system_switch_performance_level(SYSTEM_PERFORMANCE_LEVEL_0);
-// 		system_set_sleepmode(SYSTEM_SLEEPMODE_STANDBY);
-// 		system_sleep();
-// 		
-// 		//wait for interrupt to wake the MCU
-// 
-// 		//reset clocks
-// 		// Scaling up the performance level first and then increase clock frequency
-// 		system_switch_performance_level(SYSTEM_PERFORMANCE_LEVEL_2);
-// 		main_clock_select(SYSTEM_CLOCK_SOURCE_DFLL);
-// 		DEBUG_PRINT(printf("Good Morning\r\n"));
-// 		extintCount--;
-// 	
-// 		//wake radio
-// 		MiApp_TransceiverPowerState(POWER_STATE_WAKEUP);
-// 	}
+	}
+	else //edge node
+	{
+		//send data
+		sendDataBuffer[0] = 0x41 + cntVal%10; //start at ascii A
+		cntVal++;
+		
+		//send broadcast data
+		uint16_t broadcastAddress = 0xFFFF;
+		DEBUG_PRINT(printf("sending char: %u\r\n", sendDataBuffer[0]));
+		txComplete = false;
+		MiApp_SendData(SHORT_ADDR_LEN, (uint8_t *)&broadcastAddress,
+			SEND_BUFFER_SIZE, sendDataBuffer, msghandledemo++, true, dataConfcb);
+			
+		//Wait until the transmission is complete before sleeping
+//		delay_ms(10);
+		while(txComplete != true)
+		{
+			P2PTasks();
+		}
+		
+		//sleep radio
+		DEBUG_PRINT(printf("sleeping the radio\r\n"));
+
+		MiApp_TransceiverPowerState(POWER_STATE_SLEEP);
+		
+		//sleep MCU
+		DEBUG_PRINT(printf("sleeping the MCU\r\n"));
+		
+		// Scaling down clock frequency and then Scaling down the performance level
+		// ***ToDo: Are there timing requirements before these are completed? 
+		// ***      If I step through these slowly, the sleep current is lower
+		main_clock_select(SYSTEM_CLOCK_SOURCE_OSC16M);
+		system_switch_performance_level(SYSTEM_PERFORMANCE_LEVEL_0);
+		system_set_sleepmode(SYSTEM_SLEEPMODE_STANDBY);
+		system_sleep();
+		
+		//wait for interrupt to wake the MCU
+
+		//reset clocks
+		// Scaling up the performance level first and then increase clock frequency
+		system_switch_performance_level(SYSTEM_PERFORMANCE_LEVEL_2);
+		main_clock_select(SYSTEM_CLOCK_SOURCE_DFLL);
+		DEBUG_PRINT(printf("Good Morning\r\n"));
+		extintCount--;
+	
+		//wake radio
+		MiApp_TransceiverPowerState(POWER_STATE_WAKEUP);
+	}
 }
 
 static void dataConfcb(uint8_t handle, miwi_status_t status, uint8_t* msgPointer)
 {
+	txComplete = true;
+	port_pin_toggle_output_level(LED0);
+	
 	//DEBUG_PRINT(printf("\nData Confirm: Handle: %d status:%d\r\n", handle, status));
 	//MiMem_Free(msgPointer);
 }

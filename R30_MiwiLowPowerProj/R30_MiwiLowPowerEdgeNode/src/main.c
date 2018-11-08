@@ -51,7 +51,7 @@ int main (void)
 	TransceiverConfig(); //initialize pins to the radio
 	
 	//check switch state at startup to determine network role
-	netRole = port_pin_get_input_level(SW0_PIN);   
+	netRole = 0;//port_pin_get_input_level(SW0_PIN);   
 	port_pin_set_output_level(LED0, !netRole); //LED on if PAN coordinator
 	ReadMacAddress();
 	DEBUG_PRINT(printf("address: "));

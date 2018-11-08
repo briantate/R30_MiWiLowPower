@@ -36,6 +36,8 @@
 #ifndef __CONFIG_APP_H_
 #define __CONFIG_APP_H_
 
+#define ENDDEVICE
+
 /*********************************************************************/
 // USE_MAC_ADDRESS will enable the USER to use the Unique MAC Address from
 // MAC_EEPROM on board as its LongAddress
